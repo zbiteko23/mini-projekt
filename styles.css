@@ -1,0 +1,36 @@
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg1:#0f1724;
+  --bg2:#1f2a44;
+  --card:#ffffff;
+  --muted:#9aa4b2;
+  --accent:#6ee7b7;
+}
+html,body{height:100%}
+body{font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;background:linear-gradient(135deg,var(--bg1),var(--bg2));display:flex;align-items:center;justify-content:center;padding:32px}
+.app{width:100%;max-width:1000px;background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02));border-radius:14px;box-shadow:0 10px 30px rgba(2,6,23,0.6);overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+header{padding:28px 28px 8px 28px;text-align:center}
+header h1{color:var(--card);font-size:28px;letter-spacing:0.6px;margin-bottom:6px}
+.tagline{color:var(--muted);font-size:14px}
+
+main{display:flex;flex-direction:column;gap:18px;padding:20px 28px 28px}
+.menu{display:flex;gap:12px;justify-content:center}
+.menu button{background:linear-gradient(180deg,var(--card),#f7f9fb);border:none;padding:10px 18px;border-radius:10px;cursor:pointer;font-weight:600;color:#24324a;box-shadow:0 6px 18px rgba(2,6,23,0.2);transition:transform .12s ease,box-shadow .12s ease}
+.menu button:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(2,6,23,0.28)}
+.menu button:active{transform:translateY(0)}
+
+#game-area{display:flex;flex-direction:column;align-items:center}
+#info{margin-bottom:12px;color:var(--muted)}
+/* modes selector */
+.modes{display:flex;gap:8px;margin-bottom:8px}
+.modes button{background:transparent;border:1px solid rgba(15,23,36,0.06);padding:6px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
+.modes button.active{background:var(--accent);color:#053022;border:1px solid rgba(0,0,0,0.06)}
+canvas{background:linear-gradient(180deg,#ffffff,#f6f8fb);border-radius:10px;border:1px solid rgba(15,23,36,0.08);max-width:100%;height:auto}
+
+footer{padding:12px 16px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);text-align:center;color:var(--muted);font-size:13px}
+
+@media(max-width:600px){
+  header h1{font-size:20px}
+  .menu{flex-wrap:wrap}
+  .menu button{flex:1}
+}
