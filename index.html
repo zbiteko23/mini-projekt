@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mini3 launcher</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Mini3 launcher</h1>
+      <p class="tagline">Tøi jednoduché minihry</p>
+    </header>
+
+    <main>
+    <nav class="menu">
+      <button id="btn-had">Had</button>
+      <button id="btn-dropper">Dropper</button>
+      <button id="btn-miny">Hledání min</button>
+    </nav>
+
+    <section id="game-area">
+      <div id="info">Vyber hru nahoøe.</div>
+      <div id="modes" class="modes" aria-hidden="true"></div>
+      <canvas id="game-canvas" width="600" height="400"></canvas>
+    </section>
+  </main>
+    <footer>
+      <small>Krátké minihry - GitHub Copilot</small>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
