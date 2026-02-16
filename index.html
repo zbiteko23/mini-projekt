@@ -29,6 +29,21 @@
           <h3>Info</h3>
           <div id="log" class="log">Vyber level a stiskni Start vlna.</div>
         </div>
+
+        <div class="panel" id="upgradePanel" aria-hidden="true" style="display:none">
+          <h3>Vylepšit věž</h3>
+          <div>Typ: <span id="up-type">-</span></div>
+          <div>Úroveň: <span id="up-level">-</span></div>
+          <div>Poškození: <span id="up-dmg">-</span> → <span id="up-next-dmg">-</span></div>
+          <div>Dostřel: <span id="up-range">-</span> → <span id="up-next-range">-</span></div>
+          <div>Rychlost střelby: <span id="up-rate">-</span> → <span id="up-next-rate">-</span></div>
+          <div>Cena vylepšení: <strong id="up-cost">-</strong></div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button id="upgradeBtn">Vylepšit</button>
+            <button id="closeUpgradeBtn">Zavřít</button>
+          </div>
+        </div>
+
       </aside>
 
       <section class="game-area">
@@ -45,7 +60,7 @@
           <div class="tower-card" data-type="arrow" data-cost="50"><div class="icon arrow"></div><div class="label">Arrow<br><span class="cost">50</span></div></div>
           <div class="tower-card" data-type="magic" data-cost="80"><div class="icon magic"></div><div class="label">Magic<br><span class="cost">80</span></div></div>
           <div class="tower-card" data-type="mortar" data-cost="100"><div class="icon mortar"></div><div class="label">Mortar<br><span class="cost">100</span></div></div>
-          <div class="tower-card" data-type="laser" data-cost="120"><div class="icon knight"></div><div class="label">Laser<br><span class="cost">120</span></div></div>
+          <div class="tower-card" data-type="laser" data-cost="120"><div class="icon laser"></div><div class="label">Laser<br><span class="cost">120</span></div></div>
         </div>
       </section>
     </main>
