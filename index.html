@@ -26,24 +26,27 @@
         </div>
 
         <div class="panel">
-          <h3>Věže</h3>
-          <div class="towers">
-            <button class="tower-btn" data-type="arrow">Arrow<br><small>rychlá</small></button>
-            <button class="tower-btn" data-type="magic">Magic<br><small>AOE</small></button>
-            <button class="tower-btn" data-type="mortar">Mortar<br><small>expl.</small></button>
-            <button class="tower-btn" data-type="knight">Knight<br><small>melee</small></button>
-          </div>
-          <div class="hint">Klikni místo na plátně pro postavení vybrané věže</div>
-        </div>
-
-        <div class="panel">
           <h3>Info</h3>
           <div id="log" class="log">Vyber level a stiskni Start vlna.</div>
         </div>
       </aside>
 
       <section class="game-area">
-        <canvas id="gameCanvas" width="800" height="480"></canvas>
+        <div class="hud">
+          <div class="hud-item">Peněženka: <span id="hud-money">200</span></div>
+          <div class="hud-item">Vlna: <span id="hud-wave">0</span>/<span id="hud-waveTotal">0</span></div>
+          <div class="hud-item">Životy: <span id="hud-lives">20</span></div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="gameCanvas" width="900" height="520"></canvas>
+        </div>
+
+        <div class="toolbar">
+          <div class="tower-card" data-type="arrow" data-cost="50"><div class="icon arrow"></div><div class="label">Arrow<br><span class="cost">50</span></div></div>
+          <div class="tower-card" data-type="magic" data-cost="80"><div class="icon magic"></div><div class="label">Magic<br><span class="cost">80</span></div></div>
+          <div class="tower-card" data-type="mortar" data-cost="100"><div class="icon mortar"></div><div class="label">Mortar<br><span class="cost">100</span></div></div>
+          <div class="tower-card" data-type="knight" data-cost="60"><div class="icon knight"></div><div class="label">Knight<br><span class="cost">60</span></div></div>
+        </div>
       </section>
     </main>
 
