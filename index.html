@@ -3,31 +3,52 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Mini3 launcher</title>
+  <title>Tower Defense - Mini Projekt</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>Mini3 launcher</h1>
-      <p class="tagline">T�i jednoduch� minihry</p>
+      <h1>Tower Defense</h1>
+      <p class="tagline">4 věže • 5 levelů • Vlny nepřátel</p>
     </header>
 
-    <main>
-    <nav class="menu">
-      <button id="btn-had">Had</button>
-      <button id="btn-dropper">Dropper</button>
-      <button id="btn-miny">Hled�n� min</button>
-    </nav>
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="panel">
+          <div>Level:
+            <select id="levelSelect"></select>
+          </div>
+          <div>Peněženka: <span id="money">100</span></div>
+          <div>Životy: <span id="lives">20</span></div>
+          <div>Vlna: <span id="wave">0</span>/<span id="waveTotal">0</span></div>
+          <button id="startWave">Start vlna</button>
+        </div>
 
-    <section id="game-area">
-      <div id="info">Vyber hru naho�e.</div>
-      <div id="modes" class="modes" aria-hidden="true"></div>
-      <canvas id="game-canvas" width="600" height="400"></canvas>
-    </section>
-  </main>
+        <div class="panel">
+          <h3>Věže</h3>
+          <div class="towers">
+            <button class="tower-btn" data-type="arrow">Arrow<br><small>rychlá</small></button>
+            <button class="tower-btn" data-type="magic">Magic<br><small>AOE</small></button>
+            <button class="tower-btn" data-type="mortar">Mortar<br><small>expl.</small></button>
+            <button class="tower-btn" data-type="knight">Knight<br><small>melee</small></button>
+          </div>
+          <div class="hint">Klikni místo na plátně pro postavení vybrané věže</div>
+        </div>
+
+        <div class="panel">
+          <h3>Info</h3>
+          <div id="log" class="log">Vyber level a stiskni Start vlna.</div>
+        </div>
+      </aside>
+
+      <section class="game-area">
+        <canvas id="gameCanvas" width="800" height="480"></canvas>
+      </section>
+    </main>
+
     <footer>
-      <small>Kr�tk� minihry - GitHub Copilot</small>
+      <small>Mini projekt - GitHub Copilot</small>
     </footer>
   </div>
 
