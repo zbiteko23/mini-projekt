@@ -1,13 +1,3 @@
-/*
-  Changes:
-  - Support per-level maps: each level in GAME_CONFIG.levels has its own `path` array.
-  - generateSpots uses current level's path (state.level.path).
-  - Enemy type `regen` added: regenerates health over time (regenRate property).
-  - chooseEnemyType considers current level id to include `regen` enemies on higher levels.
-  - All PATH references replaced to use `state.level.path` (or local `path`).
-  - Adjusted createEnemy spawn position to first point of current level path.
-*/
-
 // Tower defense with path, spots and toolbar UI
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -28,38 +18,13 @@ const towerCards = document.querySelectorAll('.tower-card');
 let selectedTowerType = null;
 let hoverSpotIndex = -1;
 
-// upgrade panel elements (already defined earlier)
-const upgradePanel = document.getElementById('upgradePanel');
-const upType = document.getElementById('up-type');
-const upLevel = document.getElementById('up-level');
-const upDmg = document.getElementById('up-dmg');
-const upNextDmg = document.getElementById('up-next-dmg');
-const upRange = document.getElementById('up-range');
-const upNextRange = document.getElementById('up-next-range');
-const upRate = document.getElementById('up-rate');
-const upNextRate = document.getElementById('up-next-rate');
-const upCost = document.getElementById('up-cost');
-const upgradeBtn = document.getElementById('upgradeBtn');
-const closeUpgradeBtn = document.getElementById('closeUpgradeBtn');
-let currentUpgradeTower = null;
-
 const GAME_CONFIG = {
   levels: [
-    // Level 1 - simple straight path
-    { id:1, name:'Meadow', waves:5, enemyBaseHp:10, enemyCountBase:3,
-      path: [ {x:-20,y:240}, {x:150,y:240}, {x:350,y:240}, {x:900,y:240} ] },
-    // Level 2 - simple turn
-    { id:2, name:'Crossroads', waves:6, enemyBaseHp:12, enemyCountBase:4,
-      path: [ {x:-20,y:200}, {x:200,y:200}, {x:200,y:80}, {x:420,y:80}, {x:420,y:360}, {x:900,y:360} ] },
-    // Level 3 - S-shaped
-    { id:3, name:'Hills', waves:7, enemyBaseHp:16, enemyCountBase:5,
-      path: [ {x:-20,y:260}, {x:180,y:260}, {x:180,y:120}, {x:360,y:120}, {x:360,y:320}, {x:540,y:320}, {x:900,y:320} ] },
-    // Level 4 - winding
-    { id:4, name:'Forest', waves:8, enemyBaseHp:22, enemyCountBase:6,
-      path: [ {x:-20,y:220}, {x:120,y:220}, {x:120,y:120}, {x:300,y:120}, {x:300,y:220}, {x:480,y:220}, {x:480,y:80}, {x:900,y:80} ] },
-    // Level 5 - hard maze
-    { id:5, name:'Castle Gate', waves:10, enemyBaseHp:30, enemyCountBase:8,
-      path: [ {x:-20,y:300}, {x:140,y:300}, {x:140,y:140}, {x:260,y:140}, {x:260,y:340}, {x:420,y:340}, {x:420,y:100}, {x:680,y:100}, {x:680,y:260}, {x:900,y:260} ] }
+    { id:1, name:'Easy', waves:5, enemyBaseHp:10, enemyCountBase:3 },
+    { id:2, name:'Normal', waves:6, enemyBaseHp:14, enemyCountBase:4 },
+    { id:3, name:'Hard', waves:7, enemyBaseHp:20, enemyCountBase:5 },
+    { id:4, name:'Very Hard', waves:8, enemyBaseHp:28, enemyCountBase:6 },
+    { id:5, name:'Insane', waves:10, enemyBaseHp:40, enemyCountBase:8 }
   ],
   towers: {
     arrow: { cost:50, range:120, dmg:8, rate:300, projectileSpeed:500, splash:0, color:'#2c7' },
@@ -73,11 +38,13 @@ const GAME_CONFIG = {
 const ENEMY_TYPES = {
   runner: { speed: 80, hpMult: 0.6, reward: 5, color: '#ffcc00', size: 12, name: 'Rychlý' },
   grunt:  { speed: 40, hpMult: 1.0, reward: 10, color: '#b00',     size: 12, name: 'Normální' },
-  tank:   { speed: 20, hpMult: 2.4, reward: 20, color: '#400',     size: 18, name: 'Tank' },
-  regen:  { speed: 30, hpMult: 1.6, reward: 15, color: '#0ca',     size: 14, name: 'Regenerátor', regenRate: 4 }
+  tank:   { speed: 20, hpMult: 2.4, reward: 20, color: '#400',     size: 18, name: 'Tank' }
 };
 
-// spots will be generated around current level's path
+// path defined as points to follow
+const PATH = [ {x:-20,y:240}, {x:150,y:240}, {x:150,y:120}, {x:350,y:120}, {x:350,y:360}, {x:650,y:360}, {x:650,y:200}, {x:900,y:200} ];
+
+// spots will be generated around path
 let SPOTS = [];
 
 let state = {
@@ -97,48 +64,21 @@ function log(text){ const el = document.createElement('div'); el.textContent = t
 
 function generateSpots(){
   SPOTS = [];
-  const path = state.level.path;
-  const minSpacing = 120; // increased spacing to reduce number of spots
-  // offsets moved farther away from path so spots are around the path, not on it
-  const offsets = [90, -90, 140];
-  const pathClearance = 40; // minimum distance from the path centerline
-
-  // helper: distance from point p to segment a-b
-  function distPointToSegment(px,py,a,b){
-    const x1=a.x,y1=a.y,x2=b.x,y2=b.y;
-    const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
-    const dot = A * C + B * D;
-    const len_sq = C*C + D*D;
-    const param = len_sq !== 0 ? dot / len_sq : -1;
-    let xx, yy;
-    if(param < 0){ xx = x1; yy = y1; }
-    else if(param > 1){ xx = x2; yy = y2; }
-    else { xx = x1 + param * C; yy = y1 + param * D; }
-    const dx = px - xx, dy = py - yy;
-    return Math.hypot(dx,dy);
-  }
-
-  for(let i=0;i<path.length-1;i++){
-    const a = path[i], b = path[i+1];
+  const minSpacing = 60; // minimum distance between spots
+  const offsets = [60, -60, 100, -100];
+  for(let i=0;i<PATH.length-1;i++){
+    const a = PATH[i], b = PATH[i+1];
     const dx = b.x - a.x, dy = b.y - a.y; const segLen = Math.hypot(dx,dy);
-    if(segLen < 40) continue;
-    // fewer spots per segment (bigger divisor)
-    const segCount = Math.max(1, Math.floor(segLen / 220));
+    const segCount = Math.max(1, Math.floor(segLen / 140));
     const nx = -dy / segLen, ny = dx / segLen; // normal
-    for(let s=1;s<segCount; s++){ // start at 1 to avoid placing at segment ends
+    for(let s=0;s<=segCount;s++){
       const t = s/segCount;
       const px = a.x + dx * t; const py = a.y + dy * t;
       for(const off of offsets){
-        const ox = px + nx * off + (Math.random()*6-3);
-        const oy = py + ny * off + (Math.random()*6-3);
+        const ox = px + nx * off + (Math.random()*10-5);
+        const oy = py + ny * off + (Math.random()*10-5);
         // keep inside canvas bounds with margin
         if(ox < 30 || oy < 30 || ox > canvas.width-30 || oy > canvas.height-30) continue;
-        // ensure spot is not too close to the path centerline
-        let tooCloseToPath = false;
-        for(let j=0;j<path.length-1;j++){
-          if(distPointToSegment(ox,oy,path[j],path[j+1]) < pathClearance){ tooCloseToPath = true; break; }
-        }
-        if(tooCloseToPath) continue;
         // ensure not too close to existing spots
         let ok = true;
         for(const spt of SPOTS){ if(Math.hypot(spt.x-ox,spt.y-oy) < minSpacing) { ok=false; break; } }
@@ -146,16 +86,12 @@ function generateSpots(){
       }
     }
   }
-  // optionally add a couple random spots farther from path nodes
-  for(let i=1;i<path.length-1;i++){
-    if(Math.random()<0.25){ const p=path[i]; const ox=p.x + (Math.random()*2-1)*100; const oy=p.y + (Math.random()*2-1)*100; // keep margin
-      if(ox>30 && oy>30 && ox<canvas.width-30 && oy<canvas.height-30){
-        // ensure not too close to path
-        let tooClose=false; for(let j=0;j<path.length-1;j++){ if(distPointToSegment(ox,oy,path[j],path[j+1]) < pathClearance) { tooClose=true; break; } }
-        if(!tooClose){ let ok=true; for(const spt of SPOTS){ if(Math.hypot(spt.x-ox,spt.y-oy) < minSpacing) { ok=false; break; } } if(ok) SPOTS.push({x:Math.round(ox),y:Math.round(oy),r:22,occupied:false}); }
-      }
+  // add a few random near path nodes
+  for(let i=1;i<PATH.length-1;i++){
+    if(Math.random()<0.6){ const p=PATH[i]; const ox=p.x + (Math.random()*2-1)*80; const oy=p.y + (Math.random()*2-1)*80; if(ox>30 && oy>30 && ox<canvas.width-30 && oy<canvas.height-30) SPOTS.push({x:Math.round(ox),y:Math.round(oy),r:22,occupied:false}); }
   }
 }
+
 function init(){
   for(const lvl of GAME_CONFIG.levels){
     const opt = document.createElement('option'); opt.value = lvl.id; opt.textContent = lvl.name; levelSelect.appendChild(opt);
@@ -164,11 +100,9 @@ function init(){
     const id = parseInt(levelSelect.value,10); state.level = GAME_CONFIG.levels.find(l=>l.id===id); resetLevel();
   });
   startWaveBtn.addEventListener('click', startNextWave);
-  towerCards.forEach(c=>c.addEventListener('click', ()=>{ towerCards.forEach(x=>x.classList.remove('selected')); c.classList.add('selected'); selectedTowerType = c.dataset.type; upgradePanel.style.display = 'none'; currentUpgradeTower = null; }));
+  towerCards.forEach(c=>c.addEventListener('click', ()=>{ towerCards.forEach(x=>x.classList.remove('selected')); c.classList.add('selected'); selectedTowerType = c.dataset.type; }));
   canvas.addEventListener('click', onCanvasClick);
   canvas.addEventListener('mousemove', onCanvasMove);
-  upgradeBtn.addEventListener('click', performUpgrade);
-  closeUpgradeBtn.addEventListener('click', ()=>{ upgradePanel.style.display='none'; currentUpgradeTower=null; });
   resetLevel();
   requestAnimationFrame(loop);
 }
@@ -183,22 +117,11 @@ function updateUI(){ moneyEl.textContent = state.money; livesEl.textContent = st
 
 function startNextWave(){ if(state.waveRunning) return; if(state.waveIndex>=state.waveCount){ log('Všechny vlny dokonèeny'); return; } state.waveIndex++; state.waveRunning=true; spawnWave(state.waveIndex); updateUI(); }
 
-// choose enemy type for a given wave index (mix of types grows with wave and level)
+// choose enemy type for a given wave index (mix of types grows with wave)
 function chooseEnemyType(waveIdx){
-  const lvl = state.level.id;
-  const r = Math.random();
-  if(lvl <= 1){ // level 1: runners and grunts
-    return r < 0.6 ? 'runner' : 'grunt';
-  } else if(lvl === 2){ // introduce regen
-    if(waveIdx < 3) return r < 0.55 ? 'runner' : 'grunt';
-    return r < 0.45 ? 'runner' : (r < 0.85 ? 'grunt' : 'regen');
-  } else if(lvl === 3){
-    if(r < 0.25) return 'runner'; if(r < 0.65) return 'grunt'; if(r < 0.9) return 'regen'; return 'tank';
-  } else if(lvl === 4){
-    if(r < 0.2) return 'runner'; if(r < 0.55) return 'grunt'; if(r < 0.85) return 'regen'; return 'tank';
-  } else { // lvl 5 hardest
-    if(r < 0.15) return 'runner'; if(r < 0.45) return 'grunt'; if(r < 0.8) return 'regen'; return 'tank';
-  }
+  if(waveIdx <= 2){ const r=Math.random(); return r<0.55?'runner':'grunt'; }
+  else if(waveIdx <= 4){ const r=Math.random(); if(r<0.35) return 'runner'; if(r<0.85) return 'grunt'; return 'tank'; }
+  else { const r=Math.random(); if(r<0.2) return 'runner'; if(r<0.7) return 'grunt'; return 'tank'; }
 }
 
 function spawnWave(idx){
@@ -208,7 +131,7 @@ function spawnWave(idx){
     setTimeout(()=>{
       const type = chooseEnemyType(idx);
       const tpl = ENEMY_TYPES[type];
-      const hp = Math.max(1, Math.floor(base.enemyBaseHp * (tpl.hpMult || 1) * (1 + idx*0.18)));
+      const hp = Math.max(1, Math.floor(base.enemyBaseHp * tpl.hpMult * (1 + idx*0.18)));
       const speed = tpl.speed + (Math.random()*6 - 3);
       const reward = Math.max(1, Math.floor(tpl.reward * (1 + Math.floor(idx/2))));
       state.enemies.push(createEnemy(type, hp, speed, reward));
@@ -219,10 +142,9 @@ function spawnWave(idx){
 
 function createEnemy(type, hp, speed, reward){
   const tpl = ENEMY_TYPES[type] || ENEMY_TYPES['grunt'];
-  const path = state.level.path;
   return {
-    x: path[0].x,
-    y: path[0].y,
+    x: PATH[0].x,
+    y: PATH[0].y,
     hp: hp,
     maxHp: hp,
     speed: speed,
@@ -232,18 +154,30 @@ function createEnemy(type, hp, speed, reward){
     color: tpl.color,
     size: tpl.size,
     reward: reward,
-    displayName: tpl.name,
-    regenRate: tpl.regenRate || 0
+    displayName: tpl.name
   };
 }
 
 function onCanvasMove(e){ const rect = canvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top; hoverSpotIndex = -1; for(let i=0;i<SPOTS.length;i++){ const s = SPOTS[i]; const d = Math.hypot(mx-s.x,my-s.y); if(d <= s.r+6){ hoverSpotIndex = i; break; } } }
 
-function onCanvasClick(e){ const rect = canvas.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; // first check if click on existing tower -> open upgrade panel
-  for(let ti=0;ti<state.towers.length;ti++){ const t = state.towers[ti]; const d = Math.hypot(x-t.x,y-t.y); if(d <= 18){ // open upgrade panel if no tower type selected
+function onCanvasClick(e){ const rect = canvas.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; // first check if click on existing tower -> upgrade
+  for(let ti=0;ti<state.towers.length;ti++){ const t = state.towers[ti]; const d = Math.hypot(x-t.x,y-t.y); if(d <= 18){ // upgrade interaction if no tower type selected
       if(selectedTowerType){ break; } // ignore if building currently
-      currentUpgradeTower = t;
-      showUpgradePanelFor(t);
+      const upgradeCost = Math.floor((t.cfg.cost||50) * (1 + (t.level||1) * 0.7));
+      if(state.money < upgradeCost){ log('Nedostatek penìz na upgrade. Cena: '+upgradeCost); return; }
+      if(confirm('Chcete upgradovat vìž? Cena: '+upgradeCost)){
+        state.money -= upgradeCost;
+        // apply upgrade: increase damage, range, faster rate and projectile speed
+        t.level = (t.level||1) + 1;
+        t.cfg.dmg = Math.ceil(t.cfg.dmg * 1.35);
+        t.cfg.range = Math.ceil(t.cfg.range * 1.12);
+        t.cfg.rate = Math.max(60, Math.floor(t.cfg.rate * 0.88));
+        t.cfg.projectileSpeed = Math.ceil(t.cfg.projectileSpeed * 1.08);
+        // laser special: keep single bounce
+        if(t.type==='laser') t.bounceLimit = 1;
+        log('Vìž upgradována na úroveò '+t.level);
+        updateUI();
+      }
       return;
     } }
 
@@ -259,31 +193,23 @@ function onCanvasClick(e){ const rect = canvas.getBoundingClientRect(); const x 
   log('Klikni na èerné místo pro postavení vìže.');
 }
 
-function showUpgradePanelFor(t){ upgradePanel.style.display='block'; upType.textContent = t.type; upLevel.textContent = t.level || 1; upDmg.textContent = t.cfg.dmg; upRange.textContent = t.cfg.range; upRate.textContent = t.cfg.rate; const nextDmg = Math.ceil((t.cfg.dmg) * 1.35); const nextRange = Math.ceil(t.cfg.range * 1.12); const nextRate = Math.max(60, Math.floor(t.cfg.rate * 0.88)); upNextDmg.textContent = nextDmg; upNextRange.textContent = nextRange; upNextRate.textContent = nextRate; const cost = Math.floor((t.cfg.cost||50) * (1 + (t.level||1) * 0.7)); upCost.textContent = cost; }
-
-function performUpgrade(){ if(!currentUpgradeTower) return; const t = currentUpgradeTower; const cost = Math.floor((t.cfg.cost||50) * (1 + (t.level||1) * 0.7)); if(state.money < cost){ log('Nedostatek penìz na upgrade.'); return; } state.money -= cost; t.level = (t.level||1) + 1; t.cfg.dmg = Math.ceil(t.cfg.dmg * 1.35); t.cfg.range = Math.ceil(t.cfg.range * 1.12); t.cfg.rate = Math.max(60, Math.floor(t.cfg.rate * 0.88)); t.cfg.projectileSpeed = Math.ceil(t.cfg.projectileSpeed * 1.08); if(t.type==='laser') t.bounceLimit = 1; log('Vìž upgradována na úroveò '+t.level); updateUI(); showUpgradePanelFor(t); }
-
 function loop(now){ const dt = now - state.lastTime; state.lastTime = now; update(dt); draw(); requestAnimationFrame(loop); }
 
 function findEnemyById(id){ for(const e of state.enemies) if(e.id===id) return e; return null; }
 
-function update(dt){
-  // update enemies along path
+function update(dt){ // update enemies along path
   for(const e of state.enemies){
-    // regen behavior
-    if(e.regenRate && e.hp > 0){ e.hp = Math.min(e.maxHp, e.hp + e.regenRate * dt/1000); }
-    const path = state.level.path;
-    const targetPoint = path[e.pathIndex+1] || path[path.length-1];
+    const targetPoint = PATH[e.pathIndex+1] || PATH[PATH.length-1];
     const dx = targetPoint.x - e.x; const dy = targetPoint.y - e.y; const dist = Math.hypot(dx,dy);
     if(dist < 2){ e.pathIndex++; } else { e.x += (dx/dist) * e.speed * dt/1000; e.y += (dy/dist) * e.speed * dt/1000; }
   }
 
   // remove enemies that reached end
-  for(let i=state.enemies.length-1;i>=0;i--){ if(state.enemies[i].pathIndex >= state.level.path.length-1){ state.lives -= 1; state.enemies.splice(i,1); if(state.lives<=0){ log('Prohrál jsi'); resetLevel(); } updateUI(); } }
+  for(let i=state.enemies.length-1;i>=0;i--){ if(state.enemies[i].pathIndex >= PATH.length-1){ state.lives -= 1; state.enemies.splice(i,1); if(state.lives<=0){ log('Prohrál jsi'); resetLevel(); } updateUI(); } }
 
-  // towers attack -> spawn projectiles
+  // towers attack -> spawn projectiles instead of instant damage
   for(const t of state.towers){ t.lastShot += dt; const range = t.cfg.range; const rate = t.cfg.rate; if(t.lastShot >= rate){
-      let target = null; let bestDist = Infinity; const path = state.level.path;
+      let target = null; let bestDist = Infinity;
       for(const e of state.enemies){ const dx = e.x - t.x; const dy = e.y - t.y; const dist = Math.hypot(dx,dy); if(dist <= range && dist < bestDist){ bestDist = dist; target = e; } }
       if(target){ t.lastShot = 0;
         // create projectile
@@ -360,13 +286,12 @@ function draw(){ // background - grass
   // draw trees background decoration
   for(let x=40;x<canvas.width;x+=120){ for(let y=40;y<canvas.height;y+=120){ ctx.fillStyle='rgba(20,60,20,0.12)'; ctx.beginPath(); ctx.arc(x,y,22,0,Math.PI*2); ctx.fill(); } }
 
-  // draw path as band along current level path
-  const path = state.level.path;
+  // draw path as band along PATH points
   ctx.lineWidth = 56; ctx.lineJoin='round'; ctx.lineCap='round';
   // outer dark
-  ctx.strokeStyle = '#8b5a2b'; ctx.beginPath(); ctx.moveTo(path[0].x,path[0].y); for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y); ctx.stroke();
+  ctx.strokeStyle = '#8b5a2b'; ctx.beginPath(); ctx.moveTo(PATH[0].x,PATH[0].y); for(let i=1;i<PATH.length;i++) ctx.lineTo(PATH[i].x,PATH[i].y); ctx.stroke();
   // inner lighter
-  ctx.lineWidth = 36; ctx.strokeStyle='#b8865b'; ctx.beginPath(); ctx.moveTo(path[0].x,path[0].y); for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y); ctx.stroke();
+  ctx.lineWidth = 36; ctx.strokeStyle='#b8865b'; ctx.beginPath(); ctx.moveTo(PATH[0].x,PATH[0].y); for(let i=1;i<PATH.length;i++) ctx.lineTo(PATH[i].x,PATH[i].y); ctx.stroke();
 
   // draw spots (black places for towers)
   for(let i=0;i<SPOTS.length;i++){
@@ -401,7 +326,6 @@ function draw(){ // background - grass
   if(selectedTowerType && hoverSpotIndex>=0){ const s = SPOTS[hoverSpotIndex]; const cfg = GAME_CONFIG.towers[selectedTowerType]; ctx.beginPath(); ctx.arc(s.x,s.y,cfg.range,0,Math.PI*2); ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 2; ctx.stroke(); }
 }
 
-// drawTower and drawEnemy functions
 function drawTower(t){ ctx.save(); ctx.translate(t.x,t.y);
   // show base icon and level
   ctx.fillStyle = t.cfg.color || '#2c7';
