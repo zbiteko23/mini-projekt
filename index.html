@@ -5,9 +5,85 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tower Defense - Mini Projekt</title>
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* ── Auth overlay ─────────────────────────────────────────────── */
+    #authOverlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: linear-gradient(180deg, #9ad88b, #7fc46a);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #authOverlay.hidden { display: none; }
+    .auth-box {
+      background: #fff; border-radius: 14px;
+      padding: 36px 40px; width: 340px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+    }
+    .auth-box h2 { color: #123b14; margin-bottom: 20px; font-size: 20px; text-align: center; }
+    .auth-box input {
+      width: 100%; padding: 10px 12px; margin-bottom: 12px;
+      border: 1px solid #cdd; border-radius: 8px; font-size: 14px;
+      box-sizing: border-box;
+    }
+    .auth-box button {
+      width: 100%; padding: 11px; border: none; border-radius: 8px;
+      background: #34c759; color: #fff; font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-bottom: 8px;
+    }
+    .auth-box button:hover { background: #28a745; }
+    .auth-link { text-align: center; font-size: 13px; color: #555; }
+    .auth-link span { color: #2a7; cursor: pointer; text-decoration: underline; }
+    .auth-error { color: #c00; font-size: 13px; margin-bottom: 10px; min-height: 18px; }
+
+    /* ── User bar ─────────────────────────────────────────────────── */
+    #userBar {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 12px; padding: 6px 16px;
+      background: rgba(255,255,255,0.15);
+    }
+    #userBar span { font-size: 13px; color: #123b14; font-weight: 600; }
+    #userBar button {
+      padding: 5px 14px; border: none; border-radius: 6px;
+      background: #e74c3c; color: #fff; font-size: 13px; cursor: pointer;
+    }
+    #userBar button:hover { background: #c0392b; }
+    #userBar.hidden { display: none; }
+  </style>
 </head>
 <body>
+
+  <!-- ── Auth overlay ───────────────────────────────────────────────────── -->
+  <div id="authOverlay">
+    <div class="auth-box">
+      <!-- Login form -->
+      <div id="loginForm">
+        <h2>🏰 Tower Defense</h2>
+        <div id="loginError" class="auth-error"></div>
+        <input type="email"    id="loginEmail"    placeholder="E-mail">
+        <input type="password" id="loginPassword" placeholder="Heslo">
+        <button onclick="doLogin()">Přihlásit se</button>
+        <div class="auth-link">Nemáš účet? <span onclick="showRegister()">Registruj se</span></div>
+      </div>
+
+      <!-- Register form -->
+      <div id="registerForm" style="display:none">
+        <h2>Registrace</h2>
+        <div id="registerError" class="auth-error"></div>
+        <input type="text"     id="regUsername" placeholder="Uživatelské jméno">
+        <input type="email"    id="regEmail"    placeholder="E-mail">
+        <input type="password" id="regPassword" placeholder="Heslo (min. 6 znaků)">
+        <button onclick="doRegister()">Vytvořit účet</button>
+        <div class="auth-link">Máš účet? <span onclick="showLogin()">Přihlásit se</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main app ───────────────────────────────────────────────────────── -->
   <div class="app">
+    <div id="userBar" class="hidden">
+      <span>Hráč: <span id="usernameDisplay">-</span></span>
+      <button onclick="doLogout()">Odhlásit</button>
+    </div>
+
     <header>
       <h1>Tower Defense</h1>
       <p class="tagline">4 věže • 5 levelů • Vlny nepřátel</p>
@@ -54,6 +130,78 @@
       <small>Mini projekt - GitHub Copilot</small>
     </footer>
   </div>
+
+  <script>
+    // ── Auth state ───────────────────────────────────────────────────────────
+    let authToken = localStorage.getItem('td_token') || null;
+    let currentUser = JSON.parse(localStorage.getItem('td_user') || 'null');
+
+    function showLogin()    { document.getElementById('loginForm').style.display=''; document.getElementById('registerForm').style.display='none'; }
+    function showRegister() { document.getElementById('loginForm').style.display='none'; document.getElementById('registerForm').style.display=''; }
+
+    async function doLogin() {
+      const email    = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      document.getElementById('loginError').textContent = '';
+      if (!email || !password) { document.getElementById('loginError').textContent = 'Vyplň všechna pole'; return; }
+
+      const r = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password}) });
+      const d = await r.json();
+      if (!r.ok) { document.getElementById('loginError').textContent = d.error || 'Chyba přihlášení'; return; }
+
+      saveSession(d);
+    }
+
+    async function doRegister() {
+      const username = document.getElementById('regUsername').value.trim();
+      const email    = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      document.getElementById('registerError').textContent = '';
+      if (!username || !email || !password) { document.getElementById('registerError').textContent = 'Vyplň všechna pole'; return; }
+      if (password.length < 6) { document.getElementById('registerError').textContent = 'Heslo musí mít alespoň 6 znaků'; return; }
+
+      const r = await fetch('/api/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password, username}) });
+      const d = await r.json();
+      if (!r.ok) { document.getElementById('registerError').textContent = d.error || 'Chyba registrace'; return; }
+
+      saveSession(d);
+    }
+
+    function saveSession(d) {
+      authToken   = d.access_token;
+      currentUser = d.user;
+      localStorage.setItem('td_token', authToken);
+      localStorage.setItem('td_user', JSON.stringify(currentUser));
+      applySession();
+    }
+
+    function applySession() {
+      document.getElementById('authOverlay').classList.add('hidden');
+      document.getElementById('userBar').classList.remove('hidden');
+      document.getElementById('usernameDisplay').textContent = currentUser?.username || currentUser?.email || '-';
+    }
+
+    async function doLogout() {
+      if (authToken) {
+        await fetch('/api/auth/logout', { method:'POST', headers:{ Authorization: 'Bearer '+authToken } }).catch(()=>{});
+      }
+      authToken = null; currentUser = null;
+      localStorage.removeItem('td_token'); localStorage.removeItem('td_user');
+      document.getElementById('authOverlay').classList.remove('hidden');
+      document.getElementById('userBar').classList.add('hidden');
+    }
+
+    // Auto-login if token exists
+    if (authToken && currentUser) {
+      // Verify token is still valid
+      fetch('/api/auth/me', { headers:{ Authorization: 'Bearer '+authToken } })
+        .then(r => r.ok ? applySession() : doLogout())
+        .catch(() => doLogout());
+    }
+
+    // Expose token getter for score submission
+    window.getAuthToken = () => authToken;
+  </script>
 
   <script src="script.js"></script>
 </body>
